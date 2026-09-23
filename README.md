@@ -47,8 +47,11 @@ npm run e2e          # browser tests, server must be running, browser installed 
 | `GET /api/runs` | all runs; `?vehicleId=` filters | |
 | `GET /api/runs/:id` | one run | 404 `{ error: "run not found", id }` |
 | `POST /api/runs` | 201 with the created run | 400 `{ error, details: string[] }` |
+| `GET /metrics` on port `9100` | plain-text `sandbox_runs_total` and `sandbox_uptime_seconds` metrics | |
 
 Errors are JSON with an `error` field. Validation errors add `details`; other errors may add context fields such as `id`.
+
+The Kubernetes deployment enables metrics on port `9100` and exposes it through the `sandbox-app` Service. To inspect it locally after deploying, run `kubectl port-forward service/sandbox-app 9100:9100` and request `http://localhost:9100/metrics`.
 
 ## Environment contract
 
