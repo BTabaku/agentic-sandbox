@@ -22,7 +22,21 @@ export class ValidationError extends Error {
   }
 }
 
+export class InvalidTransitionError extends Error {
+  constructor(
+    public readonly from: RunStatus,
+    public readonly to: RunStatus,
+  ) {
+    super("invalid transition");
+  }
+}
+
 const CYCLES: Cycle[] = ["WLTC", "NEDC", "RDE"];
+const RUN_STATUSES: RunStatus[] = ["planned", "running", "done"];
+const ALLOWED_STATUS_TRANSITIONS: Partial<Record<RunStatus, RunStatus>> = {
+  planned: "running",
+  running: "done",
+};
 
 export function validateNewRun(input: unknown): NewRun {
   const details: string[] = [];
@@ -44,6 +58,14 @@ export function validateNewRun(input: unknown): NewRun {
     cycle: body.cycle as Cycle,
     co2GramsPerKm: body.co2GramsPerKm as number,
   };
+}
+
+export function validateRunStatus(input: unknown): RunStatus {
+  const body = (input ?? {}) as Record<string, unknown>;
+  if (!RUN_STATUSES.includes(body.status as RunStatus)) {
+    throw new ValidationError([`status must be one of ${RUN_STATUSES.join("|")}`]);
+  }
+  return body.status as RunStatus;
 }
 
 export class RunStore {
@@ -73,6 +95,18 @@ export class RunStore {
     };
     this.runs.set(run.id, run);
     return run;
+  }
+
+  updateStatus(id: string, status: RunStatus): MeasurementRun | undefined {
+    const run = this.runs.get(id);
+    if (!run) return undefined;
+    if (ALLOWED_STATUS_TRANSITIONS[run.status] !== status) {
+      throw new InvalidTransitionError(run.status, status);
+    }
+
+    const updated = { ...run, status };
+    this.runs.set(id, updated);
+    return updated;
   }
 }
 
