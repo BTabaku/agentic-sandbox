@@ -64,4 +64,38 @@ describe("runs api", () => {
     expect(res.status).toBe(400);
     expect(res.body.details).toHaveLength(3);
   });
+
+  it("advances a run through the allowed status transitions", async () => {
+    const running = await request(app).patch("/api/runs/run-0001/status").send({ status: "running" });
+    expect(running.status).toBe(200);
+    expect(running.body).toMatchObject({ id: "run-0001", status: "running" });
+
+    const done = await request(app).patch("/api/runs/run-0001/status").send({ status: "done" });
+    expect(done.status).toBe(200);
+    expect(done.body).toMatchObject({ id: "run-0001", status: "done" });
+  });
+
+  it("rejects an invalid status transition", async () => {
+    const res = await request(app).patch("/api/runs/run-0001/status").send({ status: "done" });
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "invalid transition", from: "planned", to: "done" });
+  });
+
+  it("returns 404 when updating an unknown run", async () => {
+    const res = await request(app).patch("/api/runs/run-9999/status").send({ status: "running" });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "run not found", id: "run-9999" });
+  });
+
+  it("validates status updates after finding the run", async () => {
+    const invalid = await request(app).patch("/api/runs/run-0001/status").send({ status: "paused" });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body).toEqual({
+      error: "validation failed",
+      details: ["status must be one of planned|running|done"],
+    });
+
+    const unknown = await request(app).patch("/api/runs/run-9999/status").send({ status: "paused" });
+    expect(unknown.status).toBe(404);
+  });
 });
